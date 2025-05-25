@@ -1,6 +1,8 @@
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.FileReader;
+import java.io.InputStream;
 import java.util.ArrayList;
 
 public class Graph {
@@ -104,27 +106,52 @@ public class Graph {
         }
     }
 
-    /*public void readbin(String name, int Height, int Width) {
-        boolean readMatrix = true;
-        int nodeIndex = 0;
-        ArrayList<Float> matrix = new ArrayList<>();
-        try (DataInputStream input = new DataInputStream(new FileInputStream(name))) {
-            StringBuilder sb = new StringBuilder();
-
-            while (input.available() >= 4) {
-                int value = input.readInt(); 
-                char c = (char) value;       
-                sb.append(c);
+    public void readbin(String name, int Height, int Width) {
+        int nodeNumber = 0; // numer porzadkowy wierzcholka
+        int index = 0; // indeks w tablicy nodeIndexes
+        int r; // wartosc przeczytana z pliku 
+        try {
+            InputStream in = new FileInputStream(name);
+            for (int i = 0; i < Height; i++) {
+                for (int j = 0; j < Width * 2; j++) {
+                    r = in.read();
+                    if (r == 49){ // szukamy "1" w macierzy
+                        Node node = new Node(nodeNumber);
+                        nodeNumber++;
+                        Nodes.add(node);
+                        NodeIndexes.add(index);
+                    }
+                    index++;
+                    if (r == -1) break;
+                }
+                int nl = in.read(); // \n
             }
+            String number = "";
+            int previous = -1;
+            int next = -1;
+            while ((r = in.read()) != -1) {
+                if (r >= 48 && r <= 57) {
+                    number += (r-48);
+                } else if (r == 45){
+                    previous = Integer.parseInt(number);
+                    number = "";
+                } else if (r == 10){
+                    next = Integer.parseInt(number);
+                    number = "";
+                }
 
-            System.out.println("Zawartość pliku:");
-            System.out.println(sb.toString());
+                if (previous < Nodes.size() && next < Nodes.size() && previous != -1 && next != -1) {
+                    Nodes.get(previous).Connections.add(Nodes.get(next));
+                    previous = -1;
+                    next = -1;
+                }
+            }
+            in.close();
         } catch (Exception e) {
             System.err.println("Problem z plikiem binarnym: " + e.getMessage());
             System.exit(2);
-        } 
-
-    }*/
+        }
+    }
 
     public void printGraph() {
         for (Node node : Nodes) {
@@ -134,8 +161,8 @@ public class Graph {
 
     public static void main (String [] args){
         Graph g = new Graph();
-        g.readtxt("res.txt");
-        //g.readbin("res.bin", 6, 8);
+        //g.readtxt("res.txt");
+        g.readbin("res.bin", 6, 8);
         g.printGraph();        
     }
 }
