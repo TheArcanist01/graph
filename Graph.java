@@ -4,8 +4,10 @@ package graph;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.List;
 
 public class Graph {
 
@@ -190,14 +192,12 @@ public class Graph {
 
     public void printGraph() {
         for (Node node : Nodes) {
-            System.out.println(node);
+            if (!node.Connections.isEmpty()) System.out.println(node);
         }
     }
     
     // macierz sąsiedztwa dla grafu
     public void generateAdjMtx() {
-    	
-    	
     	int mtxSize = Nodes.size() * Nodes.size();
     	ArrayList<Integer> AdjMtx = new ArrayList<Integer>(mtxSize);
     	
@@ -266,9 +266,7 @@ public class Graph {
     		if ((Nodes.get(i).getVisited() == false) && (Nodes.get(i).getIndexedDistance(nodeDistancesIndex) < Nodes.get(unvisitedNodeIndex).getIndexedDistance(nodeDistancesIndex))) {
     			unvisitedNodeIndex = i;
     		}
-    		
-
-    		}
+    	}
     	
     	startingNodeIndex = unvisitedNodeIndex;
     	Nodes.get(startingNodeIndex).setVisited(true);
@@ -282,16 +280,95 @@ public class Graph {
     	}
     }
 
+    public static int how_many_nodes(Graph g) {
+        int sum = 0;
+        for (Node node : g.Nodes) sum++;
+        return sum;
+    }
+
+    public void partition_graph(Graph g, int k, double errorMargin, List<List<Integer>> miniGraphs, ArrayList<Integer> assigned) {
+        try {
+            if (errorMargin <= 0.0 || errorMargin >= 0.5) {
+                System.err.println("Wrong Error Margin!");
+                return;
+            }
+            if (k < 2 || k > how_many_nodes(g)/2){
+                System.err.println("Wrong number of parts!");
+                return;
+            }
+
+            int nodesCounter = how_many_nodes(g)/k;
+            if (how_many_nodes(g)%k != 0) nodesCounter++;
+
+            g.Dijkstra(0, 0);
+            int distance = 0;
+            int subgraph = 0; // numer podgrafu
+            int index = 0; // index w tablicy podgrafu
+
+            while (subgraph < k-1){
+                distance = 0;
+                index = 0;
+                while (index < nodesCounter){
+                    int added = 0;
+                    for (int i = 0; i<how_many_nodes(g); i++){
+                        if (g.Nodes.get(i).Distances[0] == distance && assigned.get(i) == 0){
+                            miniGraphs.get(subgraph).add(g.Nodes.get(i).Number);
+                            assigned.set(i, 1);
+                            index++;
+                            added = 1;
+                        }
+                        if (index >= nodesCounter) break;
+                    }
+                    if (added == 0) distance++; // nic nie dodalismy
+                }
+                subgraph++;
+            }
+            index = 0;
+            for (int i = 0; i < how_many_nodes(g); i++){
+                if (assigned.get(i) == 0){
+                    miniGraphs.get(subgraph).add(g.Nodes.get(i).Number);
+                    assigned.set(i, 1);
+                }
+            }
+            for (int i = 0; i < k; i++) {
+                System.out.print("Podgraf" + i + ": ");
+                for (int node : miniGraphs.get(i)) {
+                    System.out.print(node + " ");
+                }
+                System.out.println("");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Can't partition the graph!");
+            System.exit(1);
+        }
+    }
+
     public static void main (String [] args){
         Graph g = new Graph();
-        //g.readtxt("res.txt");
-        g.readtxt("C:\\Users\\szymo\\eclipse-workspace\\Jimp\\src\\graph\\res.txt");
+        int k = 2; // liczba czesci do podzialu; np. 2,3,4,6
+        double margin = 0.1; // margines bledu
+
+        g.readtxt("res.txt");
+        //g.readbin("res.bin", 6,8);
+        //g.readtxt("C:\\Users\\szymo\\eclipse-workspace\\Jimp\\src\\graph\\res.txt");
+
         g.printGraph();
+
+        List<List<Integer>> miniGraphs = new ArrayList<>();
+        for (int i=0; i<k; i++){
+            miniGraphs.add(new ArrayList<>());
+        }
+        ArrayList<Integer> assigned = new ArrayList<>();
+        for (int i = 0; i < how_many_nodes(g); i++){
+            assigned.add(0);
+        }
         
         g.generateAdjMtx();
-        g.printAdjMtx();
-        
-        g.Dijkstra(0, 0);
-        g.printTestDijkstra(0);
+        //g.printAdjMtx();
+        //g.Dijkstra(0, 0);
+        //g.printTestDijkstra(0);
+
+        g.partition_graph(g, k, margin, miniGraphs, assigned);
     }
 }
