@@ -1,4 +1,6 @@
 
+package graph;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileReader;
@@ -11,6 +13,7 @@ public class Graph {
     public static class Node {
         int Number;
         ArrayList<Node> Connections;
+        
         // Djikstra
         boolean Visited;
         int [] Distances;
@@ -18,6 +21,13 @@ public class Graph {
         public Node (int Number){
             this.Number = Number;
             this.Connections = new ArrayList<>();
+            this.Visited = false;
+            this.Distances = new int[10]; //max 10 części podziału
+            
+            for (int i = 0; i < 10; i++) {
+            	Distances[i] = 999999;
+            }
+            
         }
         @Override
         public String toString() {
@@ -28,6 +38,30 @@ public class Graph {
             }
             return sb.toString().trim();
         }
+        
+        public int getNumber () {
+        	return Number;
+        }
+        
+        public ArrayList<Node> getConnections () {
+        	return Connections;
+        }
+        
+        public int getIndexedDistance (int DistanceIndex) {
+        	return Distances[DistanceIndex];
+        }
+        
+        public boolean getVisited () {
+        	return Visited;
+        }
+        
+        public void setVisited (boolean ifVisited) {
+        	Visited = ifVisited;
+        }
+        
+        public void setDistance(int distance, int distanceArrayIndex) {
+        	Distances[distanceArrayIndex] = distance;
+        }
     }
 
 
@@ -36,6 +70,7 @@ public class Graph {
     int Width = 0;
     ArrayList<Node> Nodes;
     ArrayList<Integer> NodeIndexes;
+    ArrayList<Integer> AdjacencyMatrix;
 
     public Graph () {
         this.Nodes = new ArrayList<>();
@@ -158,11 +193,105 @@ public class Graph {
             System.out.println(node);
         }
     }
+    
+    // macierz sąsiedztwa dla grafu
+    public void generateAdjMtx() {
+    	
+    	
+    	int mtxSize = Nodes.size() * Nodes.size();
+    	ArrayList<Integer> AdjMtx = new ArrayList<Integer>(mtxSize);
+    	
+    	// wypełnienie tablicy zerami
+    	for (int i = 0; i < mtxSize; i++) {
+    		AdjMtx.add(0);
+    	}
+    	
+    	ArrayList<Node> emptyList = new ArrayList<Node>();
+    	
+    	for (int i = 0; i < Nodes.size() - 1; i++) {
+
+            if (Nodes.get(i).getConnections() == emptyList) {
+                continue;
+            }
+            
+            for (int j = 0; j < Nodes.get(i).getConnections().size(); j++) {
+            	AdjMtx.set(Nodes.size() * Nodes.get(i).getNumber() + Nodes.get(i).getConnections().get(j).getNumber(), 1);
+            	AdjMtx.set(Nodes.size() * Nodes.get(i).getConnections().get(j).getNumber() + Nodes.get(i).getNumber(), 1);
+            }
+        }
+    	
+    	AdjacencyMatrix = AdjMtx;
+    }
+    
+    // print macierzy sąsiedztwa
+    public void printAdjMtx () {
+    	System.out.print("  ");
+    	for (int i = 0; i < Nodes.size(); i++) {
+    		System.out.print(i + " ");
+    	}
+    	System.out.print("\n");
+    	for (int i = 0; i < Nodes.size(); i++) {
+			System.out.print(i + " ");
+    		for (int j = 0; j < Nodes.size(); j++) {
+    			System.out.print(AdjacencyMatrix.get((Nodes.size() * i) + j) + " ");
+    		}
+    		System.out.print("\n");
+    	}
+    }
+    
+    // odległości algorytmem Dijkstry
+    public void Dijkstra(int startingNodeIndex, int nodeDistancesIndex) {
+    	int visitedNodes = 1;
+    	Nodes.get(startingNodeIndex).setVisited(true);
+    	Nodes.get(startingNodeIndex).setDistance(0, nodeDistancesIndex);
+    	
+    	while (visitedNodes < Nodes.size()) {
+    		for (int i = 0; i < Nodes.size(); i++) {
+    			if (AdjacencyMatrix.get((startingNodeIndex * Nodes.size()) + i) == 0) {
+    				continue;
+    			} else if ((Nodes.get(i).Visited == false) && (Nodes.get(i).getIndexedDistance(nodeDistancesIndex) > (Nodes.get(startingNodeIndex).getIndexedDistance(nodeDistancesIndex) + 1))) {
+    				Nodes.get(i).setDistance(Nodes.get(startingNodeIndex).getIndexedDistance(nodeDistancesIndex) + 1, nodeDistancesIndex);
+    			}
+    		}
+    	
+    	int unvisitedNodeIndex = 0;
+    	for (int i = 0; i < Nodes.size(); i++) {
+    		if (Nodes.get(i).getVisited() == false) {
+    			unvisitedNodeIndex = i;
+    			break;
+    			}
+    		}
+    	
+    	for (int i = 0; i < Nodes.size(); i++) {
+    		if ((Nodes.get(i).getVisited() == false) && (Nodes.get(i).getIndexedDistance(nodeDistancesIndex) < Nodes.get(unvisitedNodeIndex).getIndexedDistance(nodeDistancesIndex))) {
+    			unvisitedNodeIndex = i;
+    		}
+    		
+
+    		}
+    	
+    	startingNodeIndex = unvisitedNodeIndex;
+    	Nodes.get(startingNodeIndex).setVisited(true);
+    	visitedNodes++;
+    	}
+    }
+    
+    public void printTestDijkstra (int Index) {
+    	for (int i = 0; i < Nodes.size(); i++) {
+    		System.out.println(Nodes.get(i).getNumber() + " dist " + Nodes.get(i).getIndexedDistance(Index));
+    	}
+    }
 
     public static void main (String [] args){
         Graph g = new Graph();
         //g.readtxt("res.txt");
-        g.readbin("res.bin", 6, 8);
-        g.printGraph();        
+        g.readtxt("C:\\Users\\szymo\\eclipse-workspace\\Jimp\\src\\graph\\res.txt");
+        g.printGraph();
+        
+        g.generateAdjMtx();
+        g.printAdjMtx();
+        
+        g.Dijkstra(0, 0);
+        g.printTestDijkstra(0);
     }
 }
