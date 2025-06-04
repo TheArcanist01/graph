@@ -1,11 +1,21 @@
 
 package graph;
 
+import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.InputStream;
 import java.util.ArrayList;
+
+import javax.swing.SwingUtilities;
+
+import org.graphstream.graph.implementations.SingleGraph;
+import org.graphstream.ui.swing_viewer.SwingViewer;
+import org.graphstream.ui.swing_viewer.ViewPanel;
+import org.graphstream.ui.view.Viewer;
 
 public class Graph {
 
@@ -14,10 +24,22 @@ public class Graph {
         int Number;
         ArrayList<Node> Connections;
         
+        int whichMiniGraph;
+        
         // Djikstra
         boolean Visited;
         int [] Distances;
-
+        
+        public void assignMiniGraph () {
+        	for (int i = 0; i < miniGraphs.size(); i++) {
+        		for (int j = 0; j < miniGraphs.get(i).size(); j++) {
+        			if (this.Number == miniGraphs.get(i).get(j)) {
+        				this.whichMiniGraph = i;
+        			}
+        		}
+        	}
+        }
+        
         public Node (int Number){
             this.Number = Number;
             this.Connections = new ArrayList<>();
@@ -55,6 +77,10 @@ public class Graph {
         	return Visited;
         }
         
+        public int getWhichMiniGraph () {
+        	return whichMiniGraph;
+        }
+        
         public void setVisited (boolean ifVisited) {
         	Visited = ifVisited;
         }
@@ -62,6 +88,7 @@ public class Graph {
         public void setDistance(int distance, int distanceArrayIndex) {
         	Distances[distanceArrayIndex] = distance;
         }
+        
     }
 
 
@@ -71,10 +98,12 @@ public class Graph {
     ArrayList<Node> Nodes;
     ArrayList<Integer> NodeIndexes;
     ArrayList<Integer> AdjacencyMatrix;
+    private static ArrayList<ArrayList<Integer>> miniGraphs;
 
     public Graph () {
         this.Nodes = new ArrayList<>();
         this.NodeIndexes = new ArrayList<>();
+        Graph.miniGraphs = new ArrayList<>();
     }
 
     public void readtxt (String name) {
@@ -190,14 +219,12 @@ public class Graph {
 
     public void printGraph() {
         for (Node node : Nodes) {
-            System.out.println(node);
+            if (!node.Connections.isEmpty()) System.out.println(node);
         }
     }
     
     // macierz sąsiedztwa dla grafu
     public void generateAdjMtx() {
-    	
-    	
     	int mtxSize = Nodes.size() * Nodes.size();
     	ArrayList<Integer> AdjMtx = new ArrayList<Integer>(mtxSize);
     	
@@ -266,9 +293,7 @@ public class Graph {
     		if ((Nodes.get(i).getVisited() == false) && (Nodes.get(i).getIndexedDistance(nodeDistancesIndex) < Nodes.get(unvisitedNodeIndex).getIndexedDistance(nodeDistancesIndex))) {
     			unvisitedNodeIndex = i;
     		}
-    		
-
-    		}
+    	}
     	
     	startingNodeIndex = unvisitedNodeIndex;
     	Nodes.get(startingNodeIndex).setVisited(true);
@@ -282,16 +307,159 @@ public class Graph {
     	}
     }
 
+    public static int how_many_nodes(Graph g) {
+        int sum = 0;
+        for (Node node : g.Nodes) sum++;
+        return sum;
+    }
+
+    public void partition_graph(Graph g, int k, double errorMargin, ArrayList<Integer> assigned) {
+        try {
+            if (errorMargin <= 0.0 || errorMargin >= 0.5) {
+                System.err.println("Wrong Error Margin!");
+                return;
+            }
+            if (k < 2 || k > how_many_nodes(g)/2){
+                System.err.println("Wrong number of parts!");
+                return;
+            }
+
+            int nodesCounter = how_many_nodes(g)/k;
+            if (how_many_nodes(g)%k != 0) nodesCounter++;
+
+            g.Dijkstra(0, 0);
+            int distance = 0;
+            int subgraph = 0; // numer podgrafu
+            int index = 0; // index w tablicy podgrafu
+
+            while (subgraph < k-1){
+                distance = 0;
+                index = 0;
+                while (index < nodesCounter){
+                    int added = 0;
+                    for (int i = 0; i<how_many_nodes(g); i++){
+                        if (g.Nodes.get(i).Distances[0] == distance && assigned.get(i) == 0){
+                            miniGraphs.get(subgraph).add(g.Nodes.get(i).Number);
+                            assigned.set(i, 1);
+                            index++;
+                            added = 1;
+                        }
+                        if (index >= nodesCounter) break;
+                    }
+                    if (added == 0) distance++; // nic nie dodalismy
+                }
+                subgraph++;
+            }
+            index = 0;
+            for (int i = 0; i < how_many_nodes(g); i++){
+                if (assigned.get(i) == 0){
+                    miniGraphs.get(subgraph).add(g.Nodes.get(i).Number);
+                    assigned.set(i, 1);
+                }
+            }
+            //for (int i = 0; i < k; i++) {
+            //    System.out.print("Podgraf" + i + ": ");
+            //    for (int node : miniGraphs.get(i)) {
+            //        System.out.print(node + " ");
+            //    }
+            //    System.out.println("");
+            //}
+            
+            for (int i = 0; i < Nodes.size(); i++) {
+            	Nodes.get(i).assignMiniGraph();
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Can't partition the graph!");
+            System.exit(1);
+        }
+    }
+    
+    // UI GRAFU W GRAPHSTREAM
+    
+    public static SingleGraph graphDisplay = new SingleGraph("display");
+    public static String[] UIColors = {
+    		"shape:circle;fill-color: red;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: green;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: blue;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: yellow;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: pink;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: orange;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: purple;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: brown;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: tomato;size: 20px; text-alignment: center;",
+    		"shape:circle;fill-color: gray;size: 20px; text-alignment: center;"
+    };
+    
+    public void UI_initialize () {
+    	
+    	for (int i = 0; i < Nodes.size(); i++) {
+    		graphDisplay.addNode(String.valueOf(Nodes.get(i).getNumber()));
+    	}
+    	
+		for (int i = 0; i < Nodes.size(); i++) {
+			for (int j = 0; j < Nodes.get(i).Connections.size(); j++) {
+				graphDisplay.addEdge(String.valueOf(Nodes.get(i).getNumber())+String.valueOf(Nodes.get(i).Connections.get(j).getNumber()), String.valueOf(Nodes.get(i).getNumber()), String.valueOf(Nodes.get(i).Connections.get(j).getNumber()));
+			}
+		}
+		
+		for (org.graphstream.graph.Node n : graphDisplay) {
+			int currentNodeNumber = Integer.parseInt(n.getId());
+			n.setAttribute("xy", NodeIndexes.get(currentNodeNumber) % Width, -(NodeIndexes.get(currentNodeNumber) / Width));
+			n.setAttribute("ui.label", n.getId());
+			n.setAttribute("ui.style", UIColors[Nodes.get(Integer.valueOf(n.getId())).getWhichMiniGraph()]);
+		}
+
+	}
+	
+	public ViewPanel UI_get () {
+		Viewer viewer = new SwingViewer(graphDisplay, Viewer.ThreadingModel.GRAPH_IN_ANOTHER_THREAD);
+		ViewPanel viewPanel = (ViewPanel) viewer.addDefaultView(false);
+		
+		viewPanel.setPreferredSize(new Dimension(450, 450));
+		
+		return viewPanel;
+	}
+
     public static void main (String [] args){
-        Graph g = new Graph();
-        //g.readtxt("res.txt");
-        g.readtxt("C:\\Users\\szymo\\eclipse-workspace\\Jimp\\src\\graph\\res.txt");
-        g.printGraph();
-        
-        g.generateAdjMtx();
-        g.printAdjMtx();
-        
-        g.Dijkstra(0, 0);
-        g.printTestDijkstra(0);
+    	System.setProperty("org.graphstream.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
+    	System.setProperty("org.graphstream.ui", "swing");
+    	
+    	GUI graphGUI = new GUI();
+    	
+    	SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {				
+					graphGUI.show();
+					
+					graphGUI.setTxtLoadButtonListener(new ActionListener () {
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							Graph g = null;
+					        g = new Graph();
+					        g.readtxt("C:\\Users\\szymo\\eclipse-workspace\\Jimp\\src\\graph\\" + graphGUI.getUploadTxtField().getCurrentInput());
+					        int partitionCount = Integer.valueOf(graphGUI.getPartitionsInputField().getCurrentInput()); // liczba czesci do podzialu; np. 2,3,4,6
+					        double margin = Float.valueOf(graphGUI.getMarginInputField().getCurrentInput()); // margines bledu
+					        
+					        miniGraphs = new ArrayList<ArrayList<Integer>>();
+					        for (int i = 0; i < partitionCount; i++){
+					            miniGraphs.add(new ArrayList<>());
+					        }
+					        ArrayList<Integer> assigned = new ArrayList<>();
+					        for (int i = 0; i < how_many_nodes(g); i++){
+					            assigned.add(0);
+					        }
+					        g.generateAdjMtx();
+					        g.partition_graph(g, partitionCount, margin, assigned);
+					        
+					        graphDisplay = new SingleGraph("display");
+					        g.UI_initialize();
+					        
+							graphGUI.setGraphFieldPanel(g.UI_get());
+					        
+						}
+				});
+			}
+    	});
     }
 }
